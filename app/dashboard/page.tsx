@@ -1,128 +1,119 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ArrowUpCircle, Music, ThumbsUp, ThumbsDown, Share2 } from "lucide-react"
-import Link from "next/link"
+import { useEffect, useState, useCallback } from "react";
+import { ArrowUpCircle, Music, Share2 } from "lucide-react";
+import axios from "axios";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
+const REFRESH_INTERVAL_MS = 10_000;
 
 interface VideoItem {
-  id: string
-  title: string
-  thumbnail: string
-  votes: number
+  id: string;          // Stream record ID
+  videoId: string;     // YouTube video ID
+  title: string;
+  thumbnail: string;
 }
 
 export default function Dashboard() {
-  const [videoUrl, setVideoUrl] = useState("")
-  const [videoId, setVideoId] = useState("")
-  const [queue, setQueue] = useState<VideoItem[]>([
-    {
-      id: "dQw4w9WgXcQ",
-      title: "Rick Astley - Never Gonna Give You Up",
-      thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
-      votes: 15,
-    },
-    {
-      id: "9bZkp7q19f0",
-      title: "PSY - GANGNAM STYLE",
-      thumbnail: "https://img.youtube.com/vi/9bZkp7q19f0/mqdefault.jpg",
-      votes: 12,
-    },
-    {
-      id: "kJQP7kiw5Fk",
-      title: "Luis Fonsi - Despacito ft. Daddy Yankee",
-      thumbnail: "https://img.youtube.com/vi/kJQP7kiw5Fk/mqdefault.jpg",
-      votes: 8,
-    },
-    {
-      id: "JGwWNGJdvx8",
-      title: "Ed Sheeran - Shape of You",
-      thumbnail: "https://img.youtube.com/vi/JGwWNGJdvx8/mqdefault.jpg",
-      votes: 6,
-    },
-  ])
+  const { status } = useSession();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoIdInput, setVideoIdInput] = useState("");
+  const [queue, setQueue] = useState<VideoItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const currentlyPlaying = "dQw4w9WgXcQ"
+  // Get current user ID for API calls
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    axios
+      .get<{ id: string }>("/api/user")
+      .then((res) => setUserId(res.data.id))
+      .catch(() => setError("Unable to identify user"));
+  }, [status]);
 
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value
-    setVideoUrl(url)
-
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
-    const match = url.match(regExp)
-
-    if (match && match[2].length === 11) {
-      setVideoId(match[2])
-    } else {
-      setVideoId("")
-    }
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!videoId || queue.some((item) => item.id === videoId)) return
-
-    const newVideo: VideoItem = {
-      id: videoId,
-      title: "New Submitted Video",
-      thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
-      votes: 1,
-    }
-
-    setQueue((prev) =>
-      [...prev, newVideo].sort((a, b) => b.votes - a.votes)
-    )
-    setVideoUrl("")
-    setVideoId("")
-  }
-
-  const handleUpvote = (id: string) => {
-    setQueue((prev) =>
-      prev
-        .map((item) =>
-          item.id === id ? { ...item, votes: item.votes + 1 } : item
-        )
-        .sort((a, b) => b.votes - a.votes)
-    )
-  }
-
-  const handleDownvote = (id: string) => {
-    setQueue((prev) =>
-      prev
-        .map((item) =>
-          item.id === id ? { ...item, votes: item.votes - 1 } : item
-        )
-        .sort((a, b) => b.votes - a.votes)
-    )
-  }
-
-  const handleShare = async () => {
-    const shareData = {
-      title: "StreamTunes Dashboard",
-      text: "Check out what's playing right now on StreamTunes!",
-      url: window.location.href,
-    }
+  // Fetch streams for this user
+  const refreshStreams = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    setError(null);
     try {
-      if (navigator.share) {
-        await navigator.share(shareData)
-      } else {
-        await navigator.clipboard.writeText(shareData.url)
-        alert("Link copied to clipboard!")
-      }
-    } catch (err) {
-      console.error("Share failed:", err)
+      const res = await axios.get<{ stream: any[] }>("/api/stream", {
+        params: { creatorId: userId },
+      });
+      const items = res.data.stream.map((s) => ({
+        id: s.id,
+        videoId: s.extractedId,   // use extractedId from backend
+        title: s.title,
+        thumbnail: s.smallImg,
+      }));
+      setQueue(items);
+      setCurrentIndex(0);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to load streams");
+    } finally {
+      setLoading(false);
     }
-  }
+  }, [userId]);
+
+  useEffect(() => {
+    refreshStreams();
+    const iv = setInterval(refreshStreams, REFRESH_INTERVAL_MS);
+    return () => clearInterval(iv);
+  }, [refreshStreams]);
+
+  // Add a new stream
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!videoIdInput || !userId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await axios.post("/api/stream", { creatorId: userId, url: videoUrl });
+      setVideoUrl("");
+      setVideoIdInput("");
+      await refreshStreams();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to add stream");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Extract YouTube video ID from URL input
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    setVideoUrl(url);
+    const match = url.match(/^.*(?:youtu\.be\/|v=)([^#&?]{11}).*/);
+    setVideoIdInput(match?.[1] ?? "");
+  };
+
+  // Select and play a specific video
+  const selectVideo = (index: number) => setCurrentIndex(index);
+  const playNext = () => setCurrentIndex((i) => (i + 1) % queue.length);
+
+  if (status === "loading") return <p>Checking sign-in…</p>;
+  if (status === "unauthenticated")
+    return <p>Please sign in to view your dashboard.</p>;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <header className="border-b border-gray-800 bg-gray-900">
-        <div className="container flex h-16 items-center px-4">
+    <div className="min-h-screen bg-white text-black">
+      <header className="border-b bg-gray-100">
+        <div className="container mx-auto flex h-16 items-center px-4">
           <Link href="#" className="flex items-center gap-2 font-semibold">
-            <Music className="h-6 w-6" />
+            <Music className="h-6 w-6 text-black" />
             <span>StreamTunes</span>
           </Link>
           <nav className="ml-auto flex gap-4">
@@ -131,132 +122,94 @@ export default function Dashboard() {
             <Button variant="ghost">Settings</Button>
             <Button
               variant="ghost"
-              onClick={handleShare}
-              aria-label="Share StreamTunes"
+              onClick={() => navigator.clipboard.writeText(window.location.href)}
             >
-              <Share2 className="h-5 w-5" />
+              <Share2 className="h-5 w-5 text-black" />
             </Button>
           </nav>
         </div>
       </header>
 
-      <main className="container grid gap-6 px-4 py-6 md:grid-cols-3 lg:grid-cols-4">
+      <main className="container mx-auto grid gap-6 px-4 py-6 md:grid-cols-3 lg:grid-cols-4">
+        {/* Now Playing Section */}
         <div className="md:col-span-2 lg:col-span-3">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-white border-gray-300">
             <CardHeader>
               <CardTitle>Now Playing</CardTitle>
-              <CardDescription className="text-gray-400">
-                Currently streaming to viewers
-              </CardDescription>
+              <CardDescription>Live stream for viewers</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="aspect-video overflow-hidden rounded-lg">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${currentlyPlaying}?autoplay=1`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="aspect-video"
-                />
-              </div>
+              {queue.length > 0 && (
+                <div className="aspect-video rounded overflow-hidden border">
+                  <iframe
+                    key={queue[currentIndex].videoId}
+                    src={`https://www.youtube.com/embed/${queue[currentIndex].videoId}?autoplay=1`}
+                    className="w-full h-full"
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+
+              {queue.length > 1 && (
+                <div className="mt-2 flex justify-end">
+                  <Button onClick={playNext}>Play Next</Button>
+                </div>
+              )}
+
+              {loading && <p className="mt-2">Loading…</p>}
+              {error && <p className="mt-2 text-red-600">{error}</p>}
             </CardContent>
           </Card>
 
+          {/* Add Video Form */}
           <div className="mt-6">
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-white border-gray-300">
               <CardHeader>
-                <CardTitle>Submit a Song</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Paste a YouTube link to add it to the voting queue
-                </CardDescription>
+                <CardTitle>Add a Video</CardTitle>
+                <CardDescription>Paste a YouTube link below</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="grid gap-4">
-                  <div className="flex flex-col gap-4 md:flex-row">
-                    <Input
-                      type="text"
-                      placeholder="Paste YouTube URL here..."
-                      value={videoUrl}
-                      onChange={handleUrlChange}
-                      className="flex-1 bg-gray-800 border-gray-700"
-                    />
-                    <Button type="submit" disabled={!videoId}>
-                      <ArrowUpCircle className="mr-2 h-4 w-4" />
-                      Submit
-                    </Button>
-                  </div>
-
-                  {videoId && (
-                    <div className="mt-2 rounded-lg overflow-hidden bg-gray-800 p-4 flex items-center gap-4">
-                      <img
-                        src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
-                        alt="Video thumbnail"
-                        className="w-24 h-auto rounded"
-                      />
-                      <div>
-                        <h3 className="font-medium">Video Preview</h3>
-                        <p className="text-sm text-gray-400">
-                          Click submit to add this to the queue
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                <form onSubmit={handleSubmit} className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="YouTube URL…"
+                    value={videoUrl}
+                    onChange={handleUrlChange}
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={!videoIdInput || loading}>
+                    {loading ? "Adding…" : <ArrowUpCircle className="mr-2 h-4 w-4" />}
+                    Add
+                  </Button>
                 </form>
               </CardContent>
             </Card>
           </div>
         </div>
 
+        {/* Queue Section */}
         <div className="md:col-span-1">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-white border-gray-300">
             <CardHeader>
-              <CardTitle>Up Next</CardTitle>
-              <CardDescription className="text-gray-400">
-                Vote for the next song
-              </CardDescription>
+              <CardTitle>Queue</CardTitle>
+              <CardDescription>Select to play</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4">
-                {queue.map((video) => (
-                  <div key={video.id} className="flex gap-3 items-center">
-                    <div className="flex flex-col space-y-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full"
-                        onClick={() => handleUpvote(video.id)}
-                        aria-label="Upvote"
-                      >
-                        <ThumbsUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full"
-                        onClick={() => handleDownvote(video.id)}
-                        aria-label="Downvote"
-                      >
-                        <ThumbsDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-800/50 p-2 w-full">
-                      <img
-                        src={video.thumbnail || "/placeholder.svg"}
-                        alt={video.title}
-                        className="h-12 w-20 rounded object-cover"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {video.title}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {video.votes} votes
-                        </p>
-                      </div>
+              <div className="space-y-4">
+                {queue.map((video, idx) => (
+                  <div
+                    key={video.id}
+                    className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-100"
+                    onClick={() => selectVideo(idx)}
+                  >
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title}
+                      className="h-12 w-20 rounded object-cover"
+                    />
+                    <div className="flex-1 truncate text-sm font-medium">
+                      {video.title}
                     </div>
                   </div>
                 ))}
@@ -266,5 +219,5 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
-  )
+  );
 }

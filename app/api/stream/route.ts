@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
         : data.url.split("/").pop()?.substring(0, 11) || "";
 
     const res = await youtubesearchapi.GetVideoDetails(extractedId);
+
     const thumbnails = res?.thumbnail?.thumbnails || [];
 
     thumbnails.sort(
