@@ -15,8 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const REFRESH_INTERVAL_MS = 10000;
-
 interface VideoItem {
   id: string;
   videoId: string;
@@ -31,18 +29,19 @@ export default function CreatorStreamPage() {
   const creatorId = params?.creatorId as string;
 
   const [queue, setQueue] = useState<VideoItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Fetch creator's streams
   const fetchStreams = useCallback(async () => {
     if (!creatorId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get<{ streams: any[] }>("/api/stream", { params: { creatorId } });
-      const items: VideoItem[] = res.data.streams.map((s) => ({
+      const res = await axios.get<{ stream: any[] }>("/api/stream", {
+        params: { creatorId },
+      });
+      const items = res.data.stream.map((s) => ({
         id: s.id,
         videoId: s.extractedId,
         title: s.title,
@@ -54,7 +53,7 @@ export default function CreatorStreamPage() {
       setQueue(items);
       setCurrentIndex(0);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to load streams");
+      setError(err.response?.data?.message || "Failed to load creator's streams");
     } finally {
       setLoading(false);
     }
@@ -62,40 +61,17 @@ export default function CreatorStreamPage() {
 
   useEffect(() => {
     fetchStreams();
-    const iv = setInterval(fetchStreams, REFRESH_INTERVAL_MS);
+    const iv = setInterval(fetchStreams, 10000);
     return () => clearInterval(iv);
   }, [fetchStreams]);
 
-  // Fetch next top-voted stream
-  const handleNextStream = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.get<{ stream: any }>("/api/stream/next");
-      const s = res.data.stream;
-      const next: VideoItem = {
-        id: s.id,
-        videoId: s.extractedId,
-        title: s.title,
-        thumbnail: s.smallImg,
-        upvotes: s._count?.upvotes ?? 0,
-        haveUpvoted: false,
-      };
-      setQueue((prev) => [next, ...prev.filter((v) => v.id !== next.id)]);
-      setCurrentIndex(0);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to fetch next stream");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const playNext = () => setCurrentIndex((i) => (i + 1) % queue.length);
 
-  // Toggle upvote
-  const toggleVote = async (id: string, voted: boolean) => {
+  const toggleVote = async (streamId: string, haveUpvoted: boolean) => {
     setLoading(true);
     try {
-      const endpoint = voted ? "/api/stream/downvote" : "/api/stream/upvote";
-      await axios.post(endpoint, { streamId: id });
+      const endpoint = haveUpvoted ? "/api/stream/downvote" : "/api/stream/upvote";
+      await axios.post(endpoint, { streamId });
       await fetchStreams();
     } catch (err: any) {
       setError(err.response?.data?.message || "Vote failed");
@@ -116,14 +92,14 @@ export default function CreatorStreamPage() {
       </header>
 
       <main className="container mx-auto grid gap-6 px-4 py-6 md:grid-cols-3 lg:grid-cols-4">
-        <div className="md:col-span-2 lg:col-span-3 space-y-6">
+        <div className="md:col-span-2 lg:col-span-3">
           <Card className="bg-white border-gray-300">
             <CardHeader>
               <CardTitle>Now Playing</CardTitle>
-              <CardDescription>Viewing {creatorId}'s stream</CardDescription>
+              <CardDescription>You're watching {creatorId}'s stream</CardDescription>
             </CardHeader>
             <CardContent>
-              {queue.length > 0 ? (
+              {queue.length > 0 && (
                 <div className="aspect-video rounded overflow-hidden border">
                   <iframe
                     key={queue[currentIndex].videoId}
@@ -133,12 +109,10 @@ export default function CreatorStreamPage() {
                     allowFullScreen
                   />
                 </div>
-              ) : (
-                <p>No streams available</p>
               )}
               {queue.length > 1 && (
                 <div className="mt-2 flex justify-end">
-                  <Button onClick={handleNextStream}>Play Next</Button>
+                  <Button onClick={playNext}>Play Next</Button>
                 </div>
               )}
               {loading && <p className="mt-2">Loading…</p>}
@@ -156,29 +130,14 @@ export default function CreatorStreamPage() {
             <CardContent>
               <div className="space-y-4">
                 {queue.map((video, idx) => (
-                  <div
-                    key={video.id}
-                    className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer"
-                    onClick={() => setCurrentIndex(idx)}
-                  >
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title}
-                      className="h-12 w-20 rounded object-cover"
-                    />
+                  <div key={video.id} className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer" onClick={() => setCurrentIndex(idx)}>
+                    <img src={video.thumbnail} alt={video.title} className="h-12 w-20 rounded object-cover" />
                     <div className="flex-1 truncate text-sm font-medium">{video.title}</div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant={video.haveUpvoted ? "secondary" : "outline"}
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleVote(video.id, video.haveUpvoted);
-                        }}
-                      >
+                    <div className="flex items-center gap-1 text-sm">
+                      <Button variant={video.haveUpvoted ? "secondary" : "outline"} size="icon" onClick={(e) => { e.stopPropagation(); toggleVote(video.id, video.haveUpvoted); }}>
                         <ThumbsUp className="h-4 w-4" />
                       </Button>
-                      <span className="text-sm">{video.upvotes}</span>
+                      {video.upvotes}
                     </div>
                   </div>
                 ))}
