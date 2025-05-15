@@ -11,7 +11,6 @@ const DownVoteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   // 1. Ensure user is authenticated
-  //
   const session = await getServerSession();
   if (!session?.user?.email) {
     return NextResponse.json(
