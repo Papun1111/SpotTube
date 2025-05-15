@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowUpCircle, Music, Share2, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ArrowUpCircle, Music, Share2, ThumbsUp } from "lucide-react";
 import axios from "axios";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -37,6 +37,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // Identify user
   useEffect(() => {
     if (status !== "authenticated") return;
     axios
@@ -45,19 +46,20 @@ export default function Dashboard() {
       .catch(() => setError("Unable to identify user"));
   }, [status]);
 
+  // Load user's streams
   const refreshStreams = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError(null);
     try {
       const res = await axios.get<{ streams: any[] }>("/api/stream/my");
-      const items = res.data.streams.map((s) => ({
+      const items: VideoItem[] = res.data.streams.map((s) => ({
         id: s.id,
         videoId: s.extractedId,
         title: s.title,
         thumbnail: s.smallImg,
-        upvotes: s.upvotes,
-        haveUpvoted: s.haveUpvoted,
+        upvotes: s._count?.upvotes ?? 0,
+        haveUpvoted: s.upvotes?.length > 0,
       }));
       items.sort((a, b) => b.upvotes - a.upvotes);
       setQueue(items);
@@ -71,10 +73,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     refreshStreams();
-    const iv = setInterval(refreshStreams, REFRESH_INTERVAL_MS);
-    return () => clearInterval(iv);
+    const interval = setInterval(refreshStreams, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, [refreshStreams]);
 
+  // Add a new stream
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!videoIdInput || !userId) return;
@@ -92,6 +95,7 @@ export default function Dashboard() {
     }
   };
 
+  // Extract video ID from URL
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
     setVideoUrl(url);
@@ -99,20 +103,51 @@ export default function Dashboard() {
     setVideoIdInput(match?.[1] ?? "");
   };
 
-  const selectVideo = (index: number) => setCurrentIndex(index);
-  const playNext = () => setCurrentIndex((i) => (i + 1) % queue.length);
+  // Fetch next top-voted stream
+  const handleNextStream = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get<{ stream: any }>("/api/stream/next");
+      const s = res.data.stream;
+      const next: VideoItem = {
+        id: s.id,
+        videoId: s.extractedId,
+        title: s.title,
+        thumbnail: s.smallImg,
+        upvotes: s._count?.upvotes ?? 0,
+        haveUpvoted: false,
+      };
+      setQueue((prev) => [next, ...prev.filter((v) => v.id !== next.id)]);
+      setCurrentIndex(0);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to fetch next stream");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const toggleVote = async (streamId: string, haveUpvoted: boolean) => {
+  // Upvote/downvote
+  const toggleVote = async (id: string, voted: boolean) => {
     setLoading(true);
     try {
-      const endpoint = haveUpvoted ? "/api/stream/downvote" : "/api/stream/upvote";
-      await axios.post(endpoint, { streamId });
+      const endpoint = voted ? "/api/stream/downvote" : "/api/stream/upvote";
+      await axios.post(endpoint, { streamId: id });
       await refreshStreams();
     } catch (err: any) {
       setError(err.response?.data?.message || "Vote failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Share link
+  const handleShare = () => {
+    if (!userId) return;
+    const shareUrl = `${window.location.origin}/creator/${userId}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert("Link copied to clipboard!");
+    });
   };
 
   if (status === "loading") return <p>Checking sign-in…</p>;
@@ -130,7 +165,7 @@ export default function Dashboard() {
             <Button variant="ghost">Dashboard</Button>
             <Button variant="ghost">History</Button>
             <Button variant="ghost">Settings</Button>
-            <Button variant="ghost" onClick={() => navigator.clipboard.writeText(window.location.href)}>
+            <Button variant="ghost" onClick={handleShare}>
               <Share2 className="h-5 w-5 text-black" />
             </Button>
           </nav>
@@ -138,14 +173,15 @@ export default function Dashboard() {
       </header>
 
       <main className="container mx-auto grid gap-6 px-4 py-6 md:grid-cols-3 lg:grid-cols-4">
-        <div className="md:col-span-2 lg:col-span-3">
+        {/* Now Playing & Add Video */}
+        <div className="md:col-span-2 lg:col-span-3 space-y-6">
           <Card className="bg-white border-gray-300">
             <CardHeader>
               <CardTitle>Now Playing</CardTitle>
               <CardDescription>Live stream for viewers</CardDescription>
             </CardHeader>
             <CardContent>
-              {queue.length > 0 && (
+              {queue.length > 0 ? (
                 <div className="aspect-video rounded overflow-hidden border">
                   <iframe
                     key={queue[currentIndex].videoId}
@@ -155,10 +191,12 @@ export default function Dashboard() {
                     allowFullScreen
                   />
                 </div>
+              ) : (
+                <p>No streams available</p>
               )}
               {queue.length > 1 && (
                 <div className="mt-2 flex justify-end">
-                  <Button onClick={playNext}>Play Next</Button>
+                  <Button onClick={handleNextStream}>Play Next</Button>
                 </div>
               )}
               {loading && <p className="mt-2">Loading…</p>}
@@ -166,30 +204,29 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <div className="mt-6">
-            <Card className="bg-white border-gray-300">
-              <CardHeader>
-                <CardTitle>Add a Video</CardTitle>
-                <CardDescription>Paste a YouTube link below</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="YouTube URL…"
-                    value={videoUrl}
-                    onChange={handleUrlChange}
-                    className="flex-1"
-                  />
-                  <Button type="submit" disabled={!videoIdInput || loading}>
-                    {loading ? "Adding…" : <ArrowUpCircle className="mr-2 h-4 w-4" />} Add
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="bg-white border-gray-300">
+            <CardHeader>
+              <CardTitle>Add a Video</CardTitle>
+              <CardDescription>Paste a YouTube link below</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="YouTube URL…"
+                  value={videoUrl}
+                  onChange={handleUrlChange}
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={!videoIdInput || loading}>
+                  {loading ? "Adding…" : <ArrowUpCircle className="mr-2 h-4 w-4" />} Add
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
 
+        {/* Queue List */}
         <div className="md:col-span-1">
           <Card className="bg-white border-gray-300">
             <CardHeader>
@@ -199,11 +236,26 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-4">
                 {queue.map((video, idx) => (
-                  <div key={video.id} className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer" onClick={() => selectVideo(idx)}>
-                    <img src={video.thumbnail} alt={video.title} className="h-12 w-20 rounded object-cover" />
+                  <div
+                    key={video.id}
+                    className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                    onClick={() => setCurrentIndex(idx)}
+                  >
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title}
+                      className="h-12 w-20 rounded object-cover"
+                    />
                     <div className="flex-1 truncate text-sm font-medium">{video.title}</div>
                     <div className="flex items-center gap-1">
-                      <Button variant={video.haveUpvoted ? "secondary" : "outline"} size="icon" onClick={(e) => { e.stopPropagation(); toggleVote(video.id, video.haveUpvoted); }}>
+                      <Button
+                        variant={video.haveUpvoted ? "secondary" : "outline"}
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleVote(video.id, video.haveUpvoted);
+                        }}
+                      >
                         <ThumbsUp className="h-4 w-4" />
                       </Button>
                       <span className="text-sm">{video.upvotes}</span>
