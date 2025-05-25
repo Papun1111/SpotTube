@@ -1,5 +1,4 @@
 // File: /api/stream/downvote.ts
-
 import { prismaClient } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -34,7 +33,24 @@ export async function POST(req: NextRequest) {
     // 3. Validate request body
     const { streamId } = DownVoteSchema.parse(await req.json());
 
-    // 4. Delete the upvote record
+    // 4. Check if upvote exists before trying to delete
+    const existingUpvote = await prismaClient.upVote.findUnique({
+      where: {
+        userId_streamId: {
+          userId: user.id,
+          streamId,
+        },
+      },
+    });
+
+    if (!existingUpvote) {
+      return NextResponse.json(
+        { message: "No existing vote to remove" },
+        { status: 404 }
+      );
+    }
+
+    // 5. Delete the upvote record
     await prismaClient.upVote.delete({
       where: {
         userId_streamId: {
@@ -44,28 +60,28 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 5. Return success
+    // 6. Return success
     return NextResponse.json(
       { message: "Downvoted successfully" },
       { status: 200 }
     );
 
   } catch (err: any) {
-    // 6a. Zod validation error
+    // 7a. Zod validation error
     if (err instanceof z.ZodError) {
       return NextResponse.json(
         { message: "Invalid payload", errors: err.errors },
         { status: 422 }
       );
     }
-    // 6b. Prisma "record not found" when no upvote exists
+    // 7b. Prisma "record not found" when no upvote exists (backup check)
     if (err.code === "P2025") {
       return NextResponse.json(
         { message: "No existing vote to remove" },
         { status: 404 }
       );
     }
-    // 6c. Fallback for other errors
+    // 7c. Fallback for other errors
     console.error("Downvote error:", err);
     return NextResponse.json(
       { message: "Failed to downvote" },

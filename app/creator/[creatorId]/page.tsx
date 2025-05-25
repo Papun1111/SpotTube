@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Music, ThumbsUp } from "lucide-react";
+import { Music, ThumbsUp, ThumbsDown } from "lucide-react";
 import axios from "axios";
 import Link from "next/link";
 
@@ -21,7 +21,9 @@ interface VideoItem {
   title: string;
   thumbnail: string;
   upvotes: number;
+  downvotes: number;
   haveUpvoted: boolean;
+  haveDownvoted: boolean;
 }
 
 export default function CreatorStreamPage() {
@@ -47,9 +49,12 @@ export default function CreatorStreamPage() {
         title: s.title,
         thumbnail: s.smallImg,
         upvotes: s._count?.upvotes ?? 0,
+        downvotes: s._count?.downvotes ?? 0,
         haveUpvoted: s.upvotes?.length > 0,
+        haveDownvoted: s.downvotes?.length > 0,
       }));
-      items.sort((a, b) => b.upvotes - a.upvotes);
+      // Sort by net votes (upvotes - downvotes) descending
+      items.sort((a, b) => (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes));
       setQueue(items);
       setCurrentIndex(0);
     } catch (err: any) {
@@ -65,14 +70,27 @@ export default function CreatorStreamPage() {
     return () => clearInterval(iv);
   }, [fetchStreams]);
 
-  const playNext = () => setCurrentIndex((i) => (i + 1) % queue.length);
+  const playNext = () => {
+    // Always play the top voted song (index 0 after sorting)
+    setCurrentIndex(0);
+  };
 
-  const toggleVote = async (streamId: string, haveUpvoted: boolean) => {
+  const toggleVote = async (streamId: string, voteType: 'up' | 'down') => {
     setLoading(true);
     try {
-      const endpoint = haveUpvoted ? "/api/stream/downvote" : "/api/stream/upvote";
+      const currentItem = queue.find(item => item.id === streamId);
+      if (!currentItem) return;
+
+      let endpoint = "";
+      
+      if (voteType === 'up') {
+        endpoint = currentItem.haveUpvoted ? "/api/stream/downvote" : "/api/stream/upvote";
+      } else {
+        endpoint = currentItem.haveDownvoted ? "/api/stream/upvote" : "/api/stream/downvote";
+      }
+
       await axios.post(endpoint, { streamId });
-      await fetchStreams();
+      await fetchStreams(); // Refresh to get updated votes and re-sort
     } catch (err: any) {
       setError(err.response?.data?.message || "Vote failed");
     } finally {
@@ -125,19 +143,50 @@ export default function CreatorStreamPage() {
           <Card className="bg-white border-gray-300">
             <CardHeader>
               <CardTitle>Up Next</CardTitle>
-              <CardDescription>Top voted songs</CardDescription>
+              <CardDescription>Vote to influence the queue order</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {queue.map((video, idx) => (
-                  <div key={video.id} className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer" onClick={() => setCurrentIndex(idx)}>
+                  <div key={video.id} className={`flex items-center gap-3 p-2 rounded cursor-pointer ${idx === currentIndex ? 'bg-blue-100' : 'hover:bg-gray-100'}`} onClick={() => setCurrentIndex(idx)}>
                     <img src={video.thumbnail} alt={video.title} className="h-12 w-20 rounded object-cover" />
                     <div className="flex-1 truncate text-sm font-medium">{video.title}</div>
-                    <div className="flex items-center gap-1 text-sm">
-                      <Button variant={video.haveUpvoted ? "secondary" : "outline"} size="icon" onClick={(e) => { e.stopPropagation(); toggleVote(video.id, video.haveUpvoted); }}>
-                        <ThumbsUp className="h-4 w-4" />
-                      </Button>
-                      {video.upvotes}
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant={video.haveUpvoted ? "secondary" : "outline"} 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            toggleVote(video.id, 'up'); 
+                          }}
+                        >
+                          <ThumbsUp className="h-3 w-3" />
+                        </Button>
+                        <span className="text-xs font-medium min-w-[20px] text-center">
+                          {video.upvotes}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant={video.haveDownvoted ? "destructive" : "outline"} 
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            toggleVote(video.id, 'down'); 
+                          }}
+                        >
+                          <ThumbsDown className="h-3 w-3" />
+                        </Button>
+                        <span className="text-xs font-medium min-w-[20px] text-center">
+                          {video.downvotes}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 font-medium">
+                        Net: +{video.upvotes - video.downvotes}
+                      </div>
                     </div>
                   </div>
                 ))}
