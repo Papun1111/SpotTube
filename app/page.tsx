@@ -2,6 +2,7 @@
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "motion/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import {
   CheckCircle2,
   Zap,
@@ -15,22 +16,26 @@ import {
   Volume2,
   Star,
   Sparkles,
-  Headphones
+  Headphones,
+  LogOut,
+  LogIn
 } from "lucide-react";
 
 const Button = ({ children, className = "", variant = "default", size = "default", ...props }:any) => {
   const baseClasses = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 transform hover:scale-105 active:scale-95";
   const variants = {
     default: "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl",
-    outline: "border-2 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white bg-transparent backdrop-blur-sm"
+    outline: "border-2 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white bg-transparent backdrop-blur-sm",
+    auth: "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl",
+    logout: "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg hover:shadow-xl"
   };
   const sizes = {
     default: "px-6 py-3",
-    lg: "px-8 py-4 text-lg"
+    lg: "px-8 py-4 text-lg",
+    sm: "px-4 py-2 text-sm"
   };
   
   return (
-    
     <motion.button
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
@@ -68,8 +73,8 @@ const FloatingElements = () => {
           key={i}
           className="absolute w-2 h-2 bg-purple-400/20 rounded-full"
           initial={{ 
-            x: Math.random() * window.innerWidth,
-            y: Math.random() * window.innerHeight,
+            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1920),
+            y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1080),
           }}
           animate={{
             y: [null, -20, 20],
@@ -93,6 +98,7 @@ export default function SpotTubeLanding() {
   const [joinUrl, setJoinUrl] = useState("");
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const { scrollY } = useScroll();
+  const { data: session } = useSession();
   
   const heroY = useTransform(scrollY, [0, 500], [0, -150]);
   const heroOpacity = useTransform(scrollY, [0, 300], [1, 0]);
@@ -227,6 +233,33 @@ export default function SpotTubeLanding() {
               </motion.a>
             ))}
           </nav>
+
+          {/* Auth Button */}
+          <div>
+            {session?.user ? (
+              <Button
+                onClick={() => signOut()}
+                variant="logout"
+                size="sm"
+                className="group"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
+                Logout
+              </Button>
+            ) : (
+              <Button
+                onClick={() => signIn()}
+                variant="auth"
+                size="sm"
+                className="group"
+                aria-label="Sign in"
+              >
+                <LogIn className="w-4 h-4 mr-2 group-hover:translate-x-1 transition-transform" />
+                Sign In
+              </Button>
+            )}
+          </div>
         </div>
       </motion.header>
 
@@ -251,7 +284,9 @@ export default function SpotTubeLanding() {
                   className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-full px-4 py-2 border border-purple-500/30"
                 >
                   <Sparkles className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm text-purple-300">Now with AI-powered recommendations</span>
+                  <span className="text-sm text-purple-300">
+                    {session?.user ? `Welcome back, ${session.user.name || 'User'}!` : 'Now with AI-powered recommendations'}
+                  </span>
                 </motion.div>
                 
                 <motion.h1
@@ -301,16 +336,29 @@ export default function SpotTubeLanding() {
                 variants={itemVariants}
                 className="flex flex-col sm:flex-row gap-4"
               >
-                 <Link href="/dashboard">
-                <Button size="lg" className="group">
-                  Start Free Room
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-                </Link>
-                <Button size="lg" variant="outline">
-                  <Volume2 className="mr-2 w-5 h-5" />
-                  Browse Rooms
-                </Button>
+                {session?.user ? (
+                  <Link href="/dashboard">
+                    <Button size="lg" className="group">
+                      Go to Dashboard
+                      <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Button 
+                      size="lg" 
+                      className="group"
+                      onClick={() => signIn()}
+                    >
+                      Start Free Room
+                      <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                    <Button size="lg" variant="outline">
+                      <Volume2 className="mr-2 w-5 h-5" />
+                      Browse Rooms
+                    </Button>
+                  </>
+                )}
               </motion.div>
 
               <motion.div
@@ -503,13 +551,29 @@ export default function SpotTubeLanding() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button size="lg" className="text-xl px-12 py-6">
-                  <Play className="mr-3 w-6 h-6" />
-                  Start Your Room Now
-                  <ArrowRight className="ml-3 w-6 h-6" />
-                </Button>
+                {session?.user ? (
+                  <Link href="/dashboard">
+                    <Button size="lg" className="text-xl px-12 py-6">
+                      <Play className="mr-3 w-6 h-6" />
+                      Go to Dashboard
+                      <ArrowRight className="ml-3 w-6 h-6" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button 
+                    size="lg" 
+                    className="text-xl px-12 py-6"
+                    onClick={() => signIn()}
+                  >
+                    <Play className="mr-3 w-6 h-6" />
+                    Start Your Room Now
+                    <ArrowRight className="ml-3 w-6 h-6" />
+                  </Button>
+                )}
               </motion.div>
-              <p className="text-sm text-gray-500 mt-4">Free forever • No credit card required</p>
+              <p className="text-sm text-gray-500 mt-4">
+                {session?.user ? 'Welcome back! Your rooms are waiting.' : 'Free forever • No credit card required'}
+              </p>
             </motion.div>
           </div>
         </motion.section>

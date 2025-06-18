@@ -280,33 +280,33 @@ export default function Dashboard() {
   };
 
   // Delete a stream
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this stream?")) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await axios.delete(`/api/stream/${id}`);
+  // const handleDelete = async (id: string) => {
+  //   if (!confirm("Are you sure you want to delete this stream?")) return;
+  //   setLoading(true);
+  //   setError(null);
+  //   try {
+  //     await axios.delete(`/api/stream/${id}`);
       
-      // Remove from played songs set
-      setPlayedSongs(prev => {
-        const updated = new Set(prev);
-        updated.delete(id);
-        return updated;
-      });
+  //     // Remove from played songs set
+  //     setPlayedSongs(prev => {
+  //       const updated = new Set(prev);
+  //       updated.delete(id);
+  //       return updated;
+  //     });
       
-      // If deleting current song, move to next
-      if (queue[currentIndex]?.id === id) {
-        const nextIndex = getNextSongIndex(queue.filter(q => q.id !== id), playedSongs);
-        setCurrentIndex(nextIndex);
-      }
+  //     // If deleting current song, move to next
+  //     if (queue[currentIndex]?.id === id) {
+  //       const nextIndex = getNextSongIndex(queue.filter(q => q.id !== id), playedSongs);
+  //       setCurrentIndex(nextIndex);
+  //     }
       
-      await refreshStreams();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Delete failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     await refreshStreams();
+  //   } catch (err: any) {
+  //     setError(err.response?.data?.message || "Delete failed");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // Share link
   const handleShare = () => {
@@ -653,17 +653,17 @@ export default function Dashboard() {
                           <span className="text-xs text-purple-400 font-bold min-w-[1.5rem] text-center">
                             {video.upvotes}
                           </span>
-                          <Button
+                          {/* <Button
                             variant="destructive"
                             size="icon"
                             className="h-8 w-8 bg-red-600/20 border-red-500/50 text-red-400 hover:bg-red-600 hover:text-white transition-all duration-300 hover:scale-110"
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleDelete(video.id);
-                            }}
+                            // onClick={e => {
+                            //   e.stopPropagation();
+                            //   handleDelete(video.id);
+                            // }}
                           >
                             <Trash className="h-3 w-3" />
-                          </Button>
+                          </Button> */}
                         </div>
                       </div>
                     );

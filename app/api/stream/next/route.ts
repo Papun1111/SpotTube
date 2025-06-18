@@ -1,8 +1,6 @@
-// app/api/stream/next/route.ts
-
 import { prismaClient } from "@/lib/db";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -47,7 +45,7 @@ export async function GET() {
       where: { userId: user.id },
     });
 
-    // sort by ID (UUID lex order) for a consistent “queue”
+    // sort by ID (UUID lex order) for a consistent "queue"
     const sorted = [...streams].sort((a, b) => a.id.localeCompare(b.id));
 
     if (curr?.streamId) {
@@ -77,6 +75,6 @@ export async function GET() {
     where: { id: chosen.id },
   });
 
-  // 7. Return the stream we’re about to play
+  // 7. Return the stream we're about to play
   return NextResponse.json({ stream: chosen });
 }

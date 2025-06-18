@@ -1,6 +1,6 @@
-// File: /api/stream/downvote.ts
 import { prismaClient } from "@/lib/db";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -10,7 +10,7 @@ const DownVoteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   // 1. Ensure user is authenticated
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json(
       { message: "Unauthenticated" },

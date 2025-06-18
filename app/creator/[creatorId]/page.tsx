@@ -114,7 +114,7 @@ export default function CreatorStreamPage() {
           <Card className="bg-white border-gray-300">
             <CardHeader>
               <CardTitle>Now Playing</CardTitle>
-              <CardDescription>You're watching {creatorId}'s stream</CardDescription>
+              <CardDescription>You&apos;re watching {creatorId}&apos;s stream</CardDescription>
             </CardHeader>
             <CardContent>
               {queue.length > 0 && (
