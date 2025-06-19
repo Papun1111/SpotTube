@@ -1,36 +1,131 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+---
 
-## Getting Started
+🎧 **Spottube**
+*Stream. Vote. Vibe. Together.*
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+📖 **About the Project**
+Spottube is a modern, collaborative music streaming platform where **creators** can stream songs directly from **YouTube**, and **fans** can vote for the next song to be played — creating a dynamic, community-powered playlist in real time.
+
+Whether you're hosting a livestream, a study session, or just vibing with friends, Spottube ensures everyone gets a say in what plays next.
+
+---
+
+✨ **Key Features**
+
+🔹 Real-time YouTube streaming
+🔹 Fan-powered music queue with voting
+🔹 Google OAuth login via NextAuth
+🔹 Live interaction between streamers & fans
+🔹 Beautiful UI built with TailwindCSS + Radix
+🔹 Lightning-fast search via YouTube Search API
+
+---
+
+🧠 **Tech Stack**
+
+Frontend:
+🎯 \[Next.js 15.3] | ⚛️ \[React 19] | 🔷 \[TypeScript] | 💨 \[Tailwind CSS 4]
+
+Backend:
+🧬 \[Prisma ORM] | 🐘 \[PostgreSQL] | 🔐 \[NextAuth - Google OAuth]
+
+Utilities:
+🔍 \[YouTube Search API] | 🛡 \[Zod Validation] | 🎨 \[Lucide Icons] | 🎛 \[Radix UI]
+📦 \[Axios] | 🧩 \[pnpm] | 🔄 \[tw-animate-css]
+
+---
+
+📦 **Top Dependencies**
+
+🟪 Runtime
+• next
+• react, react-dom
+• @prisma/client
+• next-auth
+• youtube-search-api
+• clsx, tailwind-merge, class-variance-authority
+• zod
+• axios
+• lucide-react
+• @radix-ui/react-slot
+• motion
+
+🧰 Development
+• prisma
+• tailwindcss
+• eslint, eslint-config-next, @eslint/eslintrc
+• typescript, @types/node, @types/react, @types/react-dom
+• tw-animate-css
+
+---
+
+🧪 **Installation Guide**
+
+🚧 *Prerequisite:* Make sure [pnpm](https://pnpm.io/) is installed globally.
+`npm install -g pnpm`
+
+1️⃣ Clone the repository
+`git clone https://github.com/yourusername/spottube.git`
+`cd spottube`
+
+2️⃣ Install dependencies
+`pnpm install`
+
+3️⃣ Create a `.env` file with the following:
+
+```
+DATABASE_URL=your_postgres_database_url
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+NEXTAUTH_SECRET=your_nextauth_secret
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4️⃣ Apply database migrations
+`pnpm prisma migrate dev`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+5️⃣ Generate Prisma client
+`pnpm prisma generate`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+6️⃣ Start the development server
+`pnpm run dev`
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+🔐 **Environment Variables**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+📁 `.env` file includes:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+• `DATABASE_URL` – your PostgreSQL DB
+• `GOOGLE_CLIENT_ID` – Google OAuth client ID
+• `GOOGLE_CLIENT_SECRET` – Google OAuth secret
+• `NEXTAUTH_SECRET` – used by NextAuth for session security
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+🚀 **Core Functionalities**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+🎵 Stream songs from YouTube
+📊 Vote on what plays next in real time
+🧑‍🎤 Let creators control the mood
+🔐 Login securely via Google
+💎 Fast, accessible, responsive UI
+
+---
+
+👨‍💻 **Author**
+
+**Papun Mohapatra**
+Crafted with ❤️ for music communities and digital creators.
+*"Let the fans choose the vibe — one upvote at a time."*
+
+---
+
+📄 **License**
+
+Licensed under the **MIT License**
+Free to use, modify, and build upon for any purpose.
+
+---
+
