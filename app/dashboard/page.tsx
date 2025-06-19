@@ -365,10 +365,10 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-gray-700 bg-black/50 backdrop-blur-lg sticky top-0 z-50">
         <div className="container mx-auto flex h-16 items-center px-4 lg:px-6">
-          <Link href="#" className="flex items-center gap-2 font-bold text-xl">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
             <Music className="h-8 w-8 text-purple-500 animate-pulse" />
             <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              StreamTunes
+              StreamTunes Dashboard
             </span>
           </Link>
           
