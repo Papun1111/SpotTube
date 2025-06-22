@@ -189,7 +189,6 @@ export default function Dashboard() {
       await axios.post("/api/stream", { 
         creatorId: userId, 
         url: videoUrl,
-        addedAt: Date.now() // Track when added
       });
       setVideoUrl("");
       setVideoIdInput("");

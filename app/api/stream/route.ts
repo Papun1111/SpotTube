@@ -4,8 +4,6 @@ export const runtime = "nodejs";
 import { prismaClient } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-//@ts-ignore
-import youtubesearchapi from "youtube-search-api";
 
 const YT_REGEX = new RegExp(
   "^https?:\\/\\/(?:www\\.)?(?:youtube\\.com\\/watch\\?v=|youtu\\.be\\/)([A-Za-z0-9_-]{11})(?:\\S*)?$"
@@ -16,13 +14,19 @@ const CreateStreamSchema = z.object({
   url: z.string(),
 });
 
+type Thumbnail = {
+  url: string;
+  width: number;
+  height: number;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const data = CreateStreamSchema.parse(await req.json());
     const isYt = YT_REGEX.test(data.url);
 
     if (!isYt) {
-      return NextResponse.json({ message: "Wrong URL format" }, { status: 411 });
+      return NextResponse.json({ message: "Wrong URL format" }, { status: 400 });
     }
 
     const extractedId =
@@ -30,13 +34,27 @@ export async function POST(req: NextRequest) {
         ? data.url.split("?v=")[1].substring(0, 11)
         : data.url.split("/").pop()?.substring(0, 11) || "";
 
-    const res = await youtubesearchapi.GetVideoDetails(extractedId);
-    console.log(res);
-    const thumbnails = res?.thumbnail?.thumbnails || [];
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ message: "YouTube API key not found" }, { status: 500 });
+    }
 
-    thumbnails.sort(
-      (a: { width: number }, b: { width: number }) => (a.width < b.width ? -1 : 1)
+    const ytRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${extractedId}&key=${apiKey}`
     );
+
+    const ytData = await ytRes.json();
+
+    if (!ytData.items || ytData.items.length === 0) {
+      return NextResponse.json({ message: "Invalid YouTube video ID" }, { status: 404 });
+    }
+
+    const snippet = ytData.items[0].snippet;
+    const title = snippet.title;
+    const thumbnails = snippet.thumbnails;
+
+    const sortedThumbs: Thumbnail[] = Object.values(thumbnails) as Thumbnail[];
+    sortedThumbs.sort((a, b) => a.width - b.width);
 
     const stream = await prismaClient.stream.create({
       data: {
@@ -44,12 +62,12 @@ export async function POST(req: NextRequest) {
         url: data.url,
         extractedId,
         type: "Youtube",
-        title: res?.title ?? "cannot find title",
+        title,
         smallImg:
-          thumbnails.length > 1
-            ? thumbnails[thumbnails.length - 2].url
-            : thumbnails[thumbnails.length - 1].url ?? "",
-        bigImg: thumbnails[thumbnails.length - 1].url ?? "",
+          sortedThumbs.length > 1
+            ? sortedThumbs[sortedThumbs.length - 2].url
+            : sortedThumbs[sortedThumbs.length - 1].url ?? "",
+        bigImg: sortedThumbs[sortedThumbs.length - 1].url ?? "",
       },
     });
 
@@ -58,22 +76,19 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (e) {
-    console.error(e);
-    return NextResponse.json(
-      { message: "Error while adding stream" },
-      { status: 411 }
-    );
+    console.error("POST stream error:", e);
+    return NextResponse.json({ message: "Error while adding stream" }, { status: 500 });
   }
 }
-export async function GET(req:NextRequest){
-const creatorId=req.nextUrl.searchParams.get("creatorId");
-const stream=await prismaClient.stream.findMany({
-    where:{
-        userId:creatorId??""
-    }
-})
 
-return NextResponse.json({
-    stream
-})
+export async function GET(req: NextRequest) {
+  const creatorId = req.nextUrl.searchParams.get("creatorId");
+
+  const stream = await prismaClient.stream.findMany({
+    where: {
+      userId: creatorId ?? "",
+    },
+  });
+
+  return NextResponse.json({ stream });
 }
