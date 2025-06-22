@@ -4,9 +4,7 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['i.ytimg.com', 'img.youtube.com'],
   },
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'prisma']
-  },
+  serverExternalPackages: ['@prisma/client', 'prisma'], // ✅ updated key
   typescript: {
     ignoreBuildErrors: false,
   },
