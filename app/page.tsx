@@ -535,7 +535,7 @@ export default function SpotTubeLanding() {
           viewport={{ once: true }}
           className="py-24 px-6"
         >
-          <div className="container mx-auto text-center">
+          <div className="container flex justify-center items-center text-center">
             <motion.div
               className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-xl rounded-3xl p-12 border border-purple-500/30"
               whileHover={{ scale: 1.02 }}
@@ -553,7 +553,7 @@ export default function SpotTubeLanding() {
               >
                 {session?.user ? (
                   <Link href="/dashboard">
-                    <Button size="lg" className="text-xl px-12 py-6">
+                    <Button size="sm" className="text-xl px-12 py-6">
                       <Play className="mr-3 w-6 h-6" />
                       Go to Dashboard
                       <ArrowRight className="ml-3 w-6 h-6" />
